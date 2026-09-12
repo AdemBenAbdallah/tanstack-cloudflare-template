@@ -18,6 +18,8 @@
     "cf-typegen": "wrangler types",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply app_db --local",
+    "db:seed": "wrangler d1 execute app_db --local --file=./scripts/seed.sql",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && wrangler d1 migrations apply app_db --local && wrangler d1 execute app_db --local --file=./scripts/seed.sql",
     "db:migrate:remote": "echo 'BLOCKED: specify the remote database explicitly, e.g. wrangler d1 migrations apply app_db_production --remote (see DEPLOY.md).' && exit 1",
     "db:execute:local": "wrangler d1 execute app_db --local",
     "typecheck": "tsc --noEmit",

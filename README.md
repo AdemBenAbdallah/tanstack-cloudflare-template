@@ -36,9 +36,14 @@ free plan.
 pnpm install
 pnpm cf-typegen          # generate worker-configuration.d.ts from wrangler.jsonc
 pnpm db:migrate:local    # apply drizzle/ migrations to local D1
+pnpm db:seed              # demo school (re-runnable, local only)
 cp .dev.vars.example .dev.vars   # local secrets (already done if .dev.vars exists)
 pnpm dev                 # http://localhost:3000
 ```
+
+Demo logins (password `password123` for all): `owner@demo.tn`
+(owner), `sec@demo.tn` (secretary), `karim@demo.tn` (instructor),
+`sara@demo.tn` (student). `pnpm db:reset` wipes local D1 and re-seeds.
 
 Sign up at `/login` — first visit takes you to onboarding, where you
 create your auto-école and become its owner. Staff and students get their
