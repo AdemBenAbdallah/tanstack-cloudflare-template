@@ -7,6 +7,10 @@
   "observability": {
     "enabled": true
   },
+  // NOTE: top-level bindings below are LOCAL-DEV PLACEHOLDERS on purpose.
+  // `vite dev` and all pnpm db:* scripts use local miniflare state, and bare
+  // `pnpm run deploy` is blocked (see package.json + DEPLOY.md). Real IDs
+  // live only under env.staging / env.production.
   "d1_databases": [
     {
       "binding": "DB",

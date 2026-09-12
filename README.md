@@ -50,15 +50,23 @@ pnpm exec wrangler d1 execute app_db --local \
 
 | Script                | What it does                                  |
 | --------------------- | --------------------------------------------- |
-| `pnpm dev`            | Vite dev with Workers runtime (D1/KV/R2 local) |
+| `pnpm dev`            | Vite dev with Workers runtime (local D1/KV/R2 only) |
 | `pnpm build/preview`  | Production client + SSR build / preview        |
-| `pnpm deploy`         | Build + `wrangler deploy` (add `--env staging`) |
+| `pnpm account`        | Show which Cloudflare account wrangler uses    |
+| `pnpm deploy:staging` / `:production` | Build + deploy to that env (see DEPLOY.md) |
+| `pnpm deploy`         | **Blocked on purpose** — pick an env above     |
 | `pnpm cf-typegen`     | Regenerate `worker-configuration.d.ts`         |
 | `pnpm db:generate`    | New Drizzle migration from `src/db/schema.ts`  |
-| `pnpm db:migrate:local` / `:remote` | Apply migrations locally / remotely |
+| `pnpm db:migrate:local` | Apply migrations to local D1 (always `--local`) |
+| `pnpm db:execute:local` | Run SQL against local D1 (always `--local`)  |
+| `pnpm db:migrate:remote` | **Blocked on purpose** — use the explicit command in DEPLOY.md |
 | `pnpm typecheck/lint/test` | `tsc`, Biome, Vitest (workerd)             |
 
 ## Cloudflare setup (staging/production)
+
+> Deploying to a **client's** account? Follow **`DEPLOY.md`** instead —
+> it's the step-by-step runbook (account switching, first deploy,
+> secrets, admin promotion). Below is the short version.
 
 ```bash
 # 1. Create remote databases and paste their IDs into wrangler.jsonc
