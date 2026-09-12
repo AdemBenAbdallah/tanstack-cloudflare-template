@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarDays } from "lucide-react";
 import { SectionCards } from "@/components/dashboard/section-cards";
+import { CardsSkeleton } from "@/components/loading";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/i18n";
 import { intlLocale } from "@/lib/format";
 import { listLessonsFn } from "@/lib/lessons";
@@ -55,7 +57,7 @@ function DashboardPage() {
           }}
         />
       ) : (
-        <p className="px-4 text-sm lg:px-6">{t.schedule.loading}</p>
+        <CardsSkeleton />
       )}
       <div className="px-4 lg:px-6">
         <Card>
@@ -75,9 +77,11 @@ function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {lessonsQuery.isLoading && (
-              <p className="text-muted-foreground text-sm">
-                {t.schedule.loading}
-              </p>
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-14 w-full rounded-md" />
+                <Skeleton className="h-14 w-full rounded-md" />
+                <Skeleton className="h-14 w-full rounded-md" />
+              </div>
             )}
             {!lessonsQuery.isLoading && todaysLessons.length === 0 && (
               <p className="text-muted-foreground text-sm">

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PageSkeleton } from "@/components/loading";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,8 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/i18n";
-import { requireSchoolRoleFn } from "@/lib/auth-guard";
 import {
   createEnrollmentFn,
   createExamFn,
@@ -46,12 +47,11 @@ import { listStudentsFn, updateStudentFn } from "@/lib/people";
 import { listSchoolPeopleFn } from "@/lib/school";
 
 export const Route = createFileRoute("/_authenticated/students/$id")({
-  beforeLoad: async () => {
-    try {
-      return await requireSchoolRoleFn({
-        data: { roles: ["owner", "secretary"] },
-      });
-    } catch {
+  // Zero-cost guard: parent layout already resolved the membership.
+  beforeLoad: ({ context }) => {
+    const role = (context as { membership?: { role?: string } }).membership
+      ?.role;
+    if (role !== "owner" && role !== "secretary") {
       throw redirect({ to: "/app" });
     }
   },
@@ -281,11 +281,7 @@ function StudentDetailPage() {
   });
 
   if (studentsQuery.isLoading || !student) {
-    return (
-      <div className="px-4 lg:px-6">
-        <p className="text-muted-foreground text-sm">{t.schedule.loading}</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const progress = progressQuery.data;
@@ -554,7 +550,11 @@ function StudentDetailPage() {
         }
       >
         {enrollmentsQuery.isLoading ? (
-          <p className="text-muted-foreground text-sm">{t.schedule.loading}</p>
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-1/2" />
+          </div>
         ) : !activeEnrollment ? (
           <p className="text-muted-foreground text-sm">
             {t.studentDetail.noEnrollment}
@@ -649,7 +649,11 @@ function StudentDetailPage() {
 
       <Section title={t.studentDetail.progress}>
         {!progress ? (
-          <p className="text-muted-foreground text-sm">{t.schedule.loading}</p>
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-2/3" />
+          </div>
         ) : !progress.enrollmentId ? (
           <p className="text-muted-foreground text-sm">
             {t.studentDetail.noEnrollment}

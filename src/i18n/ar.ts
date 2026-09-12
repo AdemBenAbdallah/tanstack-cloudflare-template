@@ -78,9 +78,6 @@ export const ar: Dict = {
     schedule: "التقويم",
     logout: "تسجيل الخروج",
   },
-  header: {
-    quickCreate: "إنشاء سريع",
-  },
   table: {
     of: "من",
   },
@@ -185,7 +182,6 @@ export const ar: Dict = {
   },
   schedule: {
     pageTitle: "التقويم",
-    loading: "جارٍ تحميل الجدول…",
     empty: "لا دروس بعد — أنشئ الأول.",
     views: {
       agenda: "الأجندة",

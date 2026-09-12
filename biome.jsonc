@@ -26,7 +26,8 @@
       "includes": [
         "src/features/schedule/dnd/droppable-area.tsx",
         "src/features/schedule/views/week-and-day-view/week-view-multi-day-events-row.tsx",
-        "src/features/schedule/views/week-and-day-view/day-view-multi-day-events-row.tsx"
+        "src/features/schedule/views/week-and-day-view/day-view-multi-day-events-row.tsx",
+        "src/components/loading.tsx"
       ],
       "linter": {
         "rules": {

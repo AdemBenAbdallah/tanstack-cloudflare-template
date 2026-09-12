@@ -11,13 +11,17 @@ import { useLocale } from "@/i18n";
 import { getMembershipFn, getSessionFn } from "@/lib/auth-guard";
 
 export const Route = createFileRoute("/_authenticated")({
+  // Guards stay fresh for 60s: navigating between dashboard pages reuses
+  // this context instead of re-running server roundtrips every click.
+  staleTime: 60_000,
   beforeLoad: async () => {
+    // Single server call on the happy path (membership includes the user).
+    // The session fallback only runs for logged-out / school-less users.
+    const membership = await getMembershipFn().catch(() => null);
+    if (membership) return { user: membership.user, membership };
     const session = await getSessionFn().catch(() => null);
     if (!session) throw redirect({ to: "/login" });
-    const membership = await getMembershipFn().catch(() => null);
-    // Signed in but no school yet (fresh signup) -> onboarding.
-    if (!membership) throw redirect({ to: "/onboarding" });
-    return { user: session.user, membership };
+    throw redirect({ to: "/onboarding" });
   },
   component: AuthenticatedLayout,
 });
@@ -54,10 +58,7 @@ function AuthenticatedLayout() {
         role={role}
       />
       <SidebarInset>
-        <DashboardHeader
-          title={title}
-          canCreateLesson={role === "owner" || role === "secretary"}
-        />
+        <DashboardHeader title={title} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">

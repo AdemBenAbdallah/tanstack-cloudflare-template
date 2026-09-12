@@ -77,9 +77,6 @@ export const en = {
     schedule: "Calendar",
     logout: "Log out",
   },
-  header: {
-    quickCreate: "Quick Create",
-  },
   table: {
     of: "of",
   },
@@ -184,7 +181,6 @@ export const en = {
   },
   schedule: {
     pageTitle: "Calendar",
-    loading: "Loading schedule…",
     empty: "No lessons yet — create the first one.",
     views: {
       agenda: "Agenda",

@@ -7,17 +7,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLocale } from "@/i18n";
-import { requireSchoolRoleFn } from "@/lib/auth-guard";
 import { getOverviewFn } from "@/lib/school";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  beforeLoad: async () => {
-    try {
-      return await requireSchoolRoleFn({ data: { roles: ["owner"] } });
-    } catch {
-      throw redirect({ to: "/app" });
-    }
+  // Zero-cost guard: parent layout already resolved the membership.
+  beforeLoad: ({ context }) => {
+    const role = (context as { membership?: { role?: string } }).membership
+      ?.role;
+    if (role !== "owner") throw redirect({ to: "/app" });
   },
   component: AdminPage,
 });
@@ -50,7 +49,10 @@ function AdminPage() {
               </div>
             </dl>
           ) : (
-            <p className="text-muted-foreground">{t.schedule.loading}</p>
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-2/3" />
+            </div>
           )}
           <p className="text-muted-foreground mt-4">{t.admin.body}</p>
         </CardContent>

@@ -1,22 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { PageSkeleton } from "@/components/loading";
 import { ScheduleCalendar } from "@/features/schedule/schedule-calendar";
-import { useLocale } from "@/i18n";
-import { requireMembershipFn } from "@/lib/auth-guard";
 import { listLessonsFn } from "@/lib/lessons";
 import { listSchoolPeopleFn } from "@/lib/school";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
-  beforeLoad: async () => {
-    const membership = await requireMembershipFn().catch(() => null);
-    if (!membership) throw redirect({ to: "/app" });
-    return { membership };
-  },
+  // No beforeLoad needed: the parent layout guarantees an active
+  // membership, and lesson queries are scoped server-side anyway.
   component: SchedulePage,
 });
 
 function SchedulePage() {
-  const { t } = useLocale();
   const { membership } = Route.useRouteContext() as {
     membership: { role: string };
   };
@@ -43,11 +38,7 @@ function SchedulePage() {
   });
 
   if (lessonsQuery.isLoading) {
-    return (
-      <div className="px-4 lg:px-6">
-        <p className="text-sm">{t.schedule.loading}</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const people = peopleQuery.data ?? { students: [], instructors: [] };

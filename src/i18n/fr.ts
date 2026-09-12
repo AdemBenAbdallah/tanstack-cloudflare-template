@@ -80,15 +80,11 @@ export const fr: Dict = {
     schedule: "Calendrier",
     logout: "Déconnexion",
   },
-  header: {
-    quickCreate: "Création rapide",
-  },
   table: {
     of: "sur",
   },
   schedule: {
     pageTitle: "Calendrier",
-    loading: "Chargement du planning…",
     empty: "Aucune leçon — créez la première.",
     views: {
       agenda: "Agenda",

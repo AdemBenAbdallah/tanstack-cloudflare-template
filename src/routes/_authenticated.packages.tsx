@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/loading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useLocale } from "@/i18n";
-import { requireSchoolRoleFn } from "@/lib/auth-guard";
 import {
   createPackageFn,
   listPackagesFn,
@@ -39,12 +39,11 @@ import {
 import { formatTND, parseTND } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/packages")({
-  beforeLoad: async () => {
-    try {
-      return await requireSchoolRoleFn({ data: { roles: ["owner"] } });
-    } catch {
-      throw redirect({ to: "/app" });
-    }
+  // Zero-cost guard: parent layout already resolved the membership.
+  beforeLoad: ({ context }) => {
+    const role = (context as { membership?: { role?: string } }).membership
+      ?.role;
+    if (role !== "owner") throw redirect({ to: "/app" });
   },
   component: PackagesPage,
 });
@@ -294,9 +293,7 @@ function PackagesPage() {
         </CardHeader>
         <CardContent>
           {packagesQuery.isLoading ? (
-            <p className="text-muted-foreground text-sm">
-              {t.schedule.loading}
-            </p>
+            <TableSkeleton rows={4} className="px-0 lg:px-0" />
           ) : rows.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t.studentDetail.empty}
