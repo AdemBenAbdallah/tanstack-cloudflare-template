@@ -1,20 +1,46 @@
 import { Languages } from "lucide-react";
-import { useLocale } from "@/i18n";
+import { type Locale, useLocale } from "@/i18n";
 import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+
+const LOCALES: Array<{ code: Locale; label: string }> = [
+  { code: "en", label: "English" },
+  { code: "ar", label: "العربية" },
+  { code: "fr", label: "Français" },
+];
 
 export function LocaleToggle() {
-  const { locale, toggleLocale, t } = useLocale();
+  const { locale, setLocale, t } = useLocale();
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={toggleLocale}
-      aria-label={t.language.toggle}
-      className="gap-2"
-    >
-      <Languages className="size-4" />
-      {locale === "ar" ? "EN" : "عربي"}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={t.language.toggle}
+          className="gap-2"
+        >
+          <Languages className="size-4" />
+          {locale.toUpperCase()}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {LOCALES.map((l) => (
+          <DropdownMenuItem
+            key={l.code}
+            disabled={l.code === locale}
+            onClick={() => setLocale(l.code)}
+          >
+            {l.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

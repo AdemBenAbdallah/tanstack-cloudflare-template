@@ -1,9 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import {
   CalendarDays,
+  Car,
   LayoutDashboard,
   LayoutDashboardIcon,
+  Package,
   ShieldCheck,
+  UserCog,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -20,15 +24,15 @@ import { NavUser, type NavUserData } from "./nav-user";
 
 export function AppSidebar({
   user,
-  isAdmin,
-  canSchedule,
+  role,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: NavUserData;
-  isAdmin: boolean;
-  canSchedule: boolean;
+  role: string;
 }) {
   const { t } = useLocale();
+  const isOwner = role === "owner";
+  const isStaff = role === "owner" || role === "secretary";
 
   return (
     <Sidebar {...props}>
@@ -53,17 +57,39 @@ export function AppSidebar({
         <NavMain
           items={[
             { title: t.sidebar.overview, url: "/app", icon: LayoutDashboard },
-            ...(canSchedule
+            {
+              title: t.sidebar.schedule,
+              url: "/calendar",
+              icon: CalendarDays,
+            },
+            ...(isStaff
               ? [
                   {
-                    title: t.sidebar.schedule,
-                    url: "/calendar",
-                    icon: CalendarDays,
+                    title: t.people.students,
+                    url: "/students",
+                    icon: Users,
+                  },
+                  {
+                    title: t.people.vehicles,
+                    url: "/vehicles",
+                    icon: Car,
                   },
                 ]
               : []),
-            ...(isAdmin
-              ? [{ title: t.nav.admin, url: "/admin", icon: ShieldCheck }]
+            ...(isOwner
+              ? [
+                  {
+                    title: t.people.instructors,
+                    url: "/instructors",
+                    icon: UserCog,
+                  },
+                  {
+                    title: t.people.packages,
+                    url: "/packages",
+                    icon: Package,
+                  },
+                  { title: t.nav.admin, url: "/admin", icon: ShieldCheck },
+                ]
               : []),
           ]}
         />

@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type React from "react";
 import { type ReactNode, useEffect, useRef } from "react";
+import { useCalendar } from "@/features/schedule/contexts/calendar-context";
 import { useDragDrop } from "@/features/schedule/contexts/dnd-context";
 import type { IEvent } from "@/features/schedule/interfaces";
 
@@ -16,6 +17,7 @@ export function DraggableEvent({
   className,
 }: DraggableEventProps) {
   const { startDrag, endDrag, isDragging, draggedEvent } = useDragDrop();
+  const { canEdit } = useCalendar();
   const ref = useRef<HTMLDivElement>(null);
 
   const isCurrentlyDragged = isDragging && draggedEvent?.id === event.id;
@@ -39,8 +41,8 @@ export function DraggableEvent({
   return (
     <motion.div
       ref={ref}
-      className={`${className || ""} ${isCurrentlyDragged ? "opacity-50 cursor-grabbing" : "cursor-grab"}`}
-      draggable
+      className={`${className || ""} ${!canEdit ? "" : isCurrentlyDragged ? "opacity-50 cursor-grabbing" : "cursor-grab"}`}
+      draggable={canEdit}
       onClick={(e: React.MouseEvent<HTMLDivElement>) => handleClick(e)}
       onDragStart={() => {
         startDrag(event);

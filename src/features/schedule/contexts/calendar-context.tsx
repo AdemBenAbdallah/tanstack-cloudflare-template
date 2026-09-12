@@ -26,6 +26,8 @@ interface ICalendarContext {
   filterEventsBySelectedUser: (userId: IUser["id"] | "all") => void;
   users: IUser[];
   students: IUser[];
+  canCreate: boolean;
+  canEdit: boolean;
   events: IEvent[];
   addEvent: (event: Omit<IEvent, "id">) => Promise<IEvent | null>;
   updateEvent: (event: IEvent) => Promise<boolean>;
@@ -61,12 +63,16 @@ export function CalendarProvider({
   users,
   students,
   events,
+  canCreate,
+  canEdit,
   badge = "colored",
   view = "day",
 }: {
   children: React.ReactNode;
   users: IUser[];
   students: IUser[];
+  canCreate: boolean;
+  canEdit: boolean;
   events: IEvent[];
   view?: TCalendarView;
   badge?: "dot" | "colored";
@@ -274,6 +280,8 @@ export function CalendarProvider({
     setBadgeVariant,
     users,
     students,
+    canCreate,
+    canEdit,
     selectedColors,
     filterEventsBySelectedColors,
     filterEventsBySelectedUser,

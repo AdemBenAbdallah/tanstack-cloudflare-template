@@ -34,7 +34,7 @@ export function ResizableEvent({
   children,
   className,
 }: ResizableEventBlockProps) {
-  const { updateEvent, use24HourFormat } = useCalendar();
+  const { updateEvent, use24HourFormat, canEdit } = useCalendar();
   const { t } = useLocale();
   const dateFnsLocale = useDateFnsLocale();
 
@@ -134,14 +134,23 @@ export function ResizableEvent({
     () => ({
       minHeight: 15,
       maxHeight: 1440,
-      enable: {
-        top: true,
-        bottom: true,
-        topRight: false,
-        bottomRight: false,
-        bottomLeft: false,
-        topLeft: false,
-      },
+      enable: canEdit
+        ? {
+            top: true,
+            bottom: true,
+            topRight: false,
+            bottomRight: false,
+            bottomLeft: false,
+            topLeft: false,
+          }
+        : {
+            top: false,
+            bottom: false,
+            topRight: false,
+            bottomRight: false,
+            bottomLeft: false,
+            topLeft: false,
+          },
       handleStyles: {
         top: {
           cursor: "ns-resize",
@@ -168,7 +177,7 @@ export function ResizableEvent({
         isResizing && "z-50 shadow-lg",
       ),
     }),
-    [handleResizeStart, handleResize, handleResizeStop, isResizing],
+    [handleResizeStart, handleResize, handleResizeStop, isResizing, canEdit],
   );
 
   return (

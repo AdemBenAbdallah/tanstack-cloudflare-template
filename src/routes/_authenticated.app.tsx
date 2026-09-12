@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLocale } from "@/i18n";
+import { intlLocale } from "@/lib/format";
 import { listLessonsFn } from "@/lib/lessons";
 import { getOverviewFn } from "@/lib/school";
 
@@ -101,10 +102,10 @@ function DashboardPage() {
                   </p>
                 </div>
                 <span className="text-muted-foreground whitespace-nowrap tabular-nums">
-                  {new Date(l.startsAt).toLocaleTimeString(
-                    locale === "ar" ? "ar-TN" : "en-US",
-                    { hour: "2-digit", minute: "2-digit" },
-                  )}
+                  {new Date(l.startsAt).toLocaleTimeString(intlLocale(locale), {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
               </div>
             ))}

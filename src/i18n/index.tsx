@@ -8,10 +8,11 @@ import {
 } from "react";
 import { ar } from "./ar";
 import { type Dict, en } from "./en";
+import { fr } from "./fr";
 
-export type Locale = "en" | "ar";
+export type Locale = "en" | "ar" | "fr";
 
-const dictionaries: Record<Locale, Dict> = { en, ar };
+const dictionaries: Record<Locale, Dict> = { en, ar, fr };
 const STORAGE_KEY = "dashboard-locale";
 
 interface LocaleContextValue {
@@ -19,7 +20,6 @@ interface LocaleContextValue {
   dir: "ltr" | "rtl";
   t: Dict;
   setLocale: (locale: Locale) => void;
-  toggleLocale: () => void;
 }
 
 const LocaleContext = createContext<LocaleContextValue>({
@@ -27,12 +27,12 @@ const LocaleContext = createContext<LocaleContextValue>({
   dir: "ltr",
   t: en,
   setLocale: () => {},
-  toggleLocale: () => {},
 });
 
 function readStoredLocale(): Locale {
   if (typeof window === "undefined") return "en";
-  return window.localStorage.getItem(STORAGE_KEY) === "ar" ? "ar" : "en";
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === "ar" || stored === "fr" ? stored : "en";
 }
 
 export function applyLocale(locale: Locale) {
@@ -42,7 +42,7 @@ export function applyLocale(locale: Locale) {
 }
 
 /** Prevents a direction flash before React hydrates. Rendered inline in <head>. */
-export const localeInitScript = `(function(){try{var l=localStorage.getItem("dashboard-locale")==="ar"?"ar":"en";document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";}catch(e){}})();`;
+export const localeInitScript = `(function(){try{var l=localStorage.getItem("dashboard-locale");l=(l==="ar"||l==="fr")?l:"en";document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";}catch(e){}})();`;
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
@@ -59,14 +59,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     applyLocale(next);
   }, []);
 
-  const toggleLocale = useCallback(() => {
-    setLocale(readStoredLocale() === "ar" ? "en" : "ar");
-  }, [setLocale]);
-
   const dir = locale === "ar" ? "rtl" : "ltr";
   return (
     <LocaleContext.Provider
-      value={{ locale, dir, t: dictionaries[locale], setLocale, toggleLocale }}
+      value={{ locale, dir, t: dictionaries[locale], setLocale }}
     >
       {children}
     </LocaleContext.Provider>

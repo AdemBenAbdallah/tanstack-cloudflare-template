@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLocale } from "@/i18n";
+import { formatTND } from "@/lib/format";
 
 export interface OverviewCards {
   students: number;
@@ -14,13 +15,6 @@ export interface OverviewCards {
   instructors: number;
   outstandingMillimes: number | null;
   role: string;
-}
-
-function formatTND(millimes: number, locale: string): string {
-  return new Intl.NumberFormat(locale === "ar" ? "ar-TN" : "en-US", {
-    style: "currency",
-    currency: "TND",
-  }).format(millimes / 1000);
 }
 
 export function SectionCards({ stats }: { stats: OverviewCards }) {

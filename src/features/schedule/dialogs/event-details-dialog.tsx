@@ -32,7 +32,7 @@ export function EventDetailsDialog({ event, children }: IProps) {
   const fullDate = dateFnsLocale
     ? format(startDate, "EEEE dd MMMM", { locale: dateFnsLocale })
     : format(startDate, "EEEE dd MMMM");
-  const { use24HourFormat, removeEvent } = useCalendar();
+  const { use24HourFormat, removeEvent, canCreate, canEdit } = useCalendar();
   const lesson = event.lesson;
 
   async function deleteLesson() {
@@ -151,14 +151,20 @@ export function EventDetailsDialog({ event, children }: IProps) {
             )}
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <AddEditEventDialog event={event}>
-            <Button variant="outline">{t.schedule.dialog.edit}</Button>
-          </AddEditEventDialog>
-          <Button variant="destructive" onClick={deleteLesson}>
-            {t.common.delete}
-          </Button>
-        </div>
+        {(canEdit || canCreate) && (
+          <div className="flex justify-end gap-2">
+            {canEdit && (
+              <AddEditEventDialog event={event}>
+                <Button variant="outline">{t.schedule.dialog.edit}</Button>
+              </AddEditEventDialog>
+            )}
+            {canCreate && (
+              <Button variant="destructive" onClick={deleteLesson}>
+                {t.common.delete}
+              </Button>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

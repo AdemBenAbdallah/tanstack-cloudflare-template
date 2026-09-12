@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { transition } from "@/features/schedule/animations";
+import { useCalendar } from "@/features/schedule/contexts/calendar-context";
 import { AddEditEventDialog } from "@/features/schedule/dialogs/add-edit-event-dialog";
 import { EventListDialog } from "@/features/schedule/dialogs/events-list-dialog";
 import { DroppableArea } from "@/features/schedule/dnd/droppable-area";
@@ -49,6 +50,7 @@ const MAX_VISIBLE_EVENTS = 3;
 
 export function DayCell({ cell, events, eventPositions }: IProps) {
   const { t } = useLocale();
+  const { canCreate } = useCalendar();
   const { day, currentMonth, date } = cell;
   const isMobile = useMediaQuery("(max-width: 768px)");
 
@@ -136,7 +138,7 @@ export function DayCell({ cell, events, eventPositions }: IProps) {
               !currentMonth && "opacity-50",
             )}
           >
-            {cellEvents.length === 0 && !isMobile ? (
+            {cellEvents.length === 0 && !isMobile && canCreate ? (
               <div className="w-full h-full flex justify-center items-center group">
                 <AddEditEventDialog startDate={date}>
                   <Button
@@ -150,6 +152,8 @@ export function DayCell({ cell, events, eventPositions }: IProps) {
                   </Button>
                 </AddEditEventDialog>
               </div>
+            ) : cellEvents.length === 0 && !isMobile ? (
+              <div className="w-full h-full" />
             ) : (
               [0, 1, 2].map(renderEventAtPosition)
             )}
@@ -190,6 +194,7 @@ export function DayCell({ cell, events, eventPositions }: IProps) {
       showMoreCount,
       renderEventAtPosition,
       isMobile,
+      canCreate,
     ],
   );
 

@@ -602,6 +602,36 @@ export const lessonRelations = relations(lesson, ({ one }) => ({
   }),
 }));
 
+export const enrollmentRelations = relations(enrollment, ({ one, many }) => ({
+  school: one(school, {
+    fields: [enrollment.schoolId],
+    references: [school.id],
+  }),
+  student: one(studentProfile, {
+    fields: [enrollment.schoolId, enrollment.studentId],
+    references: [studentProfile.schoolId, studentProfile.id],
+  }),
+  package: one(packageEntity, {
+    fields: [enrollment.packageId],
+    references: [packageEntity.id],
+  }),
+  payments: many(payment),
+}));
+
+export const paymentRelations = relations(payment, ({ one }) => ({
+  enrollment: one(enrollment, {
+    fields: [payment.schoolId, payment.enrollmentId],
+    references: [enrollment.schoolId, enrollment.id],
+  }),
+}));
+
+export const examRelations = relations(exam, ({ one }) => ({
+  student: one(studentProfile, {
+    fields: [exam.schoolId, exam.studentId],
+    references: [studentProfile.schoolId, studentProfile.id],
+  }),
+}));
+
 export type UserRow = typeof user.$inferSelect;
 export type SchoolRow = typeof school.$inferSelect;
 export type SchoolMemberRow = typeof schoolMember.$inferSelect;

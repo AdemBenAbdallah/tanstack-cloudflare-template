@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { describe, expect, it } from "vitest";
-import type { AppDb } from "@/db/index";
-import { createDb } from "@/db/index";
+import { type AppDb, createDb } from "@/db/index";
 import {
   enrollment,
   instructorProfile,
@@ -461,5 +461,47 @@ describe("schema guardrails exist in the migrated database", () => {
       sql`SELECT name FROM pragma_index_list('school_member') WHERE "unique" = 1`,
     )) as Array<{ name: string }>;
     expect(indexes.length).toBeGreaterThan(0);
+  });
+});
+
+describe("staff provisioning primitives", () => {
+  it("hashes and verifies passwords in the Workers runtime", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const hash = await hashPassword("password123");
+    expect(await verifyPassword({ hash, password: "password123" })).toBe(true);
+    expect(await verifyPassword({ hash, password: "wrongpass1" })).toBe(false);
+
+    const { account } = await import("@/db/schema");
+    const userId = `user_prov_${Date.now()}`;
+    const now = new Date();
+    await db.insert(user).values({
+      id: userId,
+      name: "Provisioned",
+      email: `prov${Date.now()}@x.tn`,
+      emailVerified: false,
+      role: "user",
+      banned: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(account).values({
+      id: `acc_prov_${Date.now()}`,
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: hash,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const row = await db.query.account.findFirst({
+      where: (t, { eq }) => eq(t.userId, userId),
+    });
+    expect(row?.providerId).toBe("credential");
+    expect(
+      await verifyPassword({
+        hash: row?.password ?? "",
+        password: "password123",
+      }),
+    ).toBe(true);
   });
 });

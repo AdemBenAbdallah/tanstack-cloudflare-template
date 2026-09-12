@@ -51,7 +51,7 @@ export function AddEditEventDialog({
 }: IProps) {
   const { t } = useLocale();
   const { isOpen, onClose, onToggle } = useDisclosure();
-  const { addEvent, updateEvent, users, students } = useCalendar();
+  const { addEvent, updateEvent, users, students, canCreate } = useCalendar();
   const peopleQuery = useQuery({
     queryKey: ["school-people"],
     queryFn: () => listSchoolPeopleFn(),
@@ -227,6 +227,7 @@ export function AddEditEventDialog({
             <Select
               value={form.studentId}
               onValueChange={(v) => set("studentId", v)}
+              disabled={!canCreate}
             >
               <SelectTrigger id="lesson-student">
                 <SelectValue placeholder={t.schedule.form.selectStudent} />
@@ -247,6 +248,7 @@ export function AddEditEventDialog({
             <Select
               value={form.instructorId}
               onValueChange={(v) => set("instructorId", v)}
+              disabled={!canCreate}
             >
               <SelectTrigger id="lesson-instructor">
                 <SelectValue placeholder={t.schedule.form.selectInstructor} />
@@ -285,6 +287,7 @@ export function AddEditEventDialog({
               <Label htmlFor="lesson-kind">{t.schedule.form.kind}</Label>
               <Select
                 value={form.kind}
+                disabled={!canCreate}
                 onValueChange={(v) =>
                   set("kind", v as (typeof lessonKinds)[number])
                 }
@@ -322,6 +325,9 @@ export function AddEditEventDialog({
                   <SelectItem value="cancelled">
                     {t.schedule.status.cancelled}
                   </SelectItem>
+                  <SelectItem value="no_show">
+                    {t.schedule.examStatus.absent}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -330,6 +336,7 @@ export function AddEditEventDialog({
             <Label htmlFor="lesson-vehicle">{t.schedule.form.vehicle}</Label>
             <Select
               value={form.vehicleId || "none"}
+              disabled={!canCreate}
               onValueChange={(v) => set("vehicleId", v === "none" ? "" : v)}
             >
               <SelectTrigger id="lesson-vehicle">

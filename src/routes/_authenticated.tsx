@@ -51,8 +51,7 @@ function AuthenticatedLayout() {
       <AppSidebar
         side={dir === "rtl" ? "right" : "left"}
         user={{ name: user.name, email: user.email, role }}
-        isAdmin={role === "owner"}
-        canSchedule={role === "owner" || role === "secretary"}
+        role={role}
       />
       <SidebarInset>
         <DashboardHeader

@@ -18,10 +18,14 @@ export function ScheduleCalendar({
   lessons,
   instructors,
   students,
+  canCreate,
+  canEdit,
 }: {
   lessons: Array<LessonDTO>;
   instructors: Array<{ profileId: string; name: string }>;
   students: Array<{ profileId: string; name: string }>;
+  canCreate: boolean;
+  canEdit: boolean;
 }) {
   const { t } = useLocale();
 
@@ -53,6 +57,8 @@ export function ScheduleCalendar({
       events={events}
       users={instructorUsers}
       students={studentUsers}
+      canCreate={canCreate}
+      canEdit={canEdit}
       view="agenda"
     >
       <DndProvider

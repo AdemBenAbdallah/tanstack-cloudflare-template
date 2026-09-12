@@ -31,7 +31,7 @@ const DragDropContext = createContext<DragDropContextType | undefined>(
 );
 
 export function DndProvider({ children, labels }: DndProviderProps) {
-  const { updateEvent } = useCalendar();
+  const { updateEvent, canEdit } = useCalendar();
   const [dragState, setDragState] = useState<{
     draggedEvent: IEvent | null;
     isDragging: boolean;
@@ -82,7 +82,7 @@ export function DndProvider({ children, labels }: DndProviderProps) {
   const handleEventDrop = useCallback(
     (targetDate: Date, hour?: number, minute?: number) => {
       const { draggedEvent } = dragState;
-      if (!draggedEvent) return;
+      if (!draggedEvent || !canEdit) return;
 
       const { newStart, newEnd } = calculateNewDates(
         draggedEvent,
@@ -105,7 +105,7 @@ export function DndProvider({ children, labels }: DndProviderProps) {
       }
       endDrag();
     },
-    [dragState, calculateNewDates, isSamePosition, endDrag],
+    [dragState, calculateNewDates, isSamePosition, endDrag, canEdit],
   );
 
   // Default event update handler
