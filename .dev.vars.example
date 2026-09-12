@@ -1,0 +1,6 @@
+# Local dev secrets for `vite dev` (read by the Cloudflare Vite plugin).
+# Copy to `.dev.vars` (gitignored) and fill in. Production uses `wrangler secret put`.
+BETTER_AUTH_SECRET=local-dev-secret-change-me-min-32-chars-123456
+BETTER_AUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

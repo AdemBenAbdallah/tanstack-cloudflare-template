@@ -1,0 +1,39 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "linter": { "enabled": true, "rules": { "recommended": true } },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
+  "javascript": { "formatter": { "quoteStyle": "double" } },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "overrides": [
+    {
+      "includes": [
+        "src/components/ui/sidebar.tsx",
+        "src/components/ui/chart.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noDocumentCookie": "off",
+            "noArrayIndexKey": "off"
+          },
+          "security": { "noDangerouslySetInnerHtml": "off" },
+          "correctness": { "useExhaustiveDependencies": "off" }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/features/schedule/dnd/droppable-area.tsx",
+        "src/features/schedule/views/week-and-day-view/week-view-multi-day-events-row.tsx",
+        "src/features/schedule/views/week-and-day-view/day-view-multi-day-events-row.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": { "useSemanticElements": "off" },
+          "suspicious": { "noArrayIndexKey": "off" }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tanstack-dashboard-template",
+  "compatibility_date": "2026-09-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "app_db",
+      "database_id": "local-app-db",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "local-kv"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "app-uploads"
+    }
+  ],
+  "vars": {
+    "PUBLIC_APP_NAME": "Dashboard Template"
+  },
+  "env": {
+    "staging": {
+      "name": "tanstack-dashboard-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "app_db_staging",
+          "database_id": "REPLACE_WITH_STAGING_D1_ID",
+          "migrations_dir": "drizzle"
+        }
+      ]
+    },
+    "production": {
+      "name": "tanstack-dashboard-production",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "app_db_production",
+          "database_id": "REPLACE_WITH_PRODUCTION_D1_ID",
+          "migrations_dir": "drizzle"
+        }
+      ]
+    }
+  }
+}
