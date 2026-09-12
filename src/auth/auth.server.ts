@@ -54,6 +54,17 @@ export function createAuth(overrides?: Partial<AuthEnv>) {
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    // Local dev can land on any port (3000 busy -> 3001, ...), so trust
+    // the usual localhost origins. Production uses BETTER_AUTH_URL only.
+    trustedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://localhost:5173",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001",
+    ],
     database: drizzleAdapter(drizzle(env.DB, { schema }), {
       provider: "sqlite",
     }),
