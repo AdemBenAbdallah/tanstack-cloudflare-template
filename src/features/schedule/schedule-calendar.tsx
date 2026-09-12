@@ -6,14 +6,7 @@ import { CalendarBody } from "./calendar-body";
 import { CalendarProvider } from "./contexts/calendar-context";
 import { DndProvider } from "./contexts/dnd-context";
 import { CalendarHeader } from "./header/calendar-header";
-import { type LessonDTO, lessonToEvent, userToInstructor } from "./mapping";
-
-export interface ScheduleUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import { type LessonDTO, lessonToEvent } from "./mapping";
 
 /**
  * Driving-school schedule: lessons from D1 rendered in a full calendar
@@ -23,29 +16,45 @@ export interface ScheduleUser {
  */
 export function ScheduleCalendar({
   lessons,
-  users,
+  instructors,
+  students,
 }: {
   lessons: Array<LessonDTO>;
-  users: Array<ScheduleUser>;
+  instructors: Array<{ profileId: string; name: string }>;
+  students: Array<{ profileId: string; name: string }>;
 }) {
   const { t } = useLocale();
 
-  const kindLabel = useMemo(() => {
-    return (kind: string) => {
-      if (kind === "theory") return t.schedule.kinds.theory;
-      if (kind === "exam") return t.schedule.kinds.exam;
-      return t.schedule.kinds.practice;
-    };
-  }, [t]);
-
   const events = useMemo(
-    () => lessons.map((lesson) => lessonToEvent(lesson, kindLabel)),
-    [lessons, kindLabel],
+    () => lessons.map((lesson) => lessonToEvent(lesson, t)),
+    [lessons, t],
   );
-  const instructors = useMemo(() => users.map(userToInstructor), [users]);
+  const instructorUsers = useMemo(
+    () =>
+      instructors.map((i) => ({
+        id: i.profileId,
+        name: i.name,
+        picturePath: null,
+      })),
+    [instructors],
+  );
+  const studentUsers = useMemo(
+    () =>
+      students.map((s) => ({
+        id: s.profileId,
+        name: s.name,
+        picturePath: null,
+      })),
+    [students],
+  );
 
   return (
-    <CalendarProvider events={events} users={instructors} view="agenda">
+    <CalendarProvider
+      events={events}
+      users={instructorUsers}
+      students={studentUsers}
+      view="agenda"
+    >
       <DndProvider
         labels={{
           moved: t.schedule.dnd.moved,

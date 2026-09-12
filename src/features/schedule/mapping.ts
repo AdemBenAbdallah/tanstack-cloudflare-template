@@ -1,19 +1,36 @@
 import type { LessonKind, LessonStatus } from "@/db/schema";
+import type { Dict } from "@/i18n/en";
 import type { IEvent, IUser } from "./interfaces";
 import type { TEventColor } from "./types";
+
+export function kindLabel(kind: string, t: Dict): string {
+  switch (kind) {
+    case "theory":
+      return t.schedule.kinds.theory;
+    case "parking":
+      return t.schedule.kinds.parking;
+    case "exam_drive":
+      return t.schedule.kinds.examDrive;
+    case "exam_parking":
+      return t.schedule.kinds.examParking;
+    default:
+      return t.schedule.kinds.driving;
+  }
+}
 
 export interface LessonDTO {
   id: string;
   studentId: string;
   instructorId: string;
+  vehicleId: string | null;
   vehicle: string | null;
   kind: string;
   status: string;
   startsAt: string | Date;
   endsAt: string | Date;
   notes: string | null;
-  student: { id: string; name: string; email?: string } | null;
-  instructor: { id: string; name: string; email?: string } | null;
+  student: { id: string; firstName: string; lastName: string } | null;
+  instructor: { id: string; firstName: string; lastName: string } | null;
 }
 
 export function statusToColor(status: string): TEventColor {
@@ -27,14 +44,18 @@ export function toLocalInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function lessonToEvent(
-  lesson: LessonDTO,
-  kindLabel: (kind: string) => string,
-): IEvent {
-  const studentName = lesson.student?.name ?? "—";
-  const instructorName = lesson.instructor?.name ?? "—";
-  const kind = (lesson.kind ?? "practice") as LessonKind;
+export function lessonToEvent(lesson: LessonDTO, t: Dict): IEvent {
+  const kind = (lesson.kind ?? "driving") as LessonKind;
   const status = (lesson.status ?? "scheduled") as LessonStatus;
+  const studentName =
+    lesson.student != null
+      ? `${lesson.student.firstName} ${lesson.student.lastName}`.trim() || "—"
+      : "—";
+  const instructorName =
+    lesson.instructor != null
+      ? `${lesson.instructor.firstName} ${lesson.instructor.lastName}`.trim() ||
+        "—"
+      : "—";
   const parts = [
     `${instructorName}`,
     lesson.vehicle ? lesson.vehicle : null,
@@ -45,7 +66,7 @@ export function lessonToEvent(
     id: lesson.id,
     startDate: new Date(lesson.startsAt).toISOString(),
     endDate: new Date(lesson.endsAt).toISOString(),
-    title: `${studentName} · ${kindLabel(kind)}`,
+    title: `${studentName} · ${kindLabel(kind, t)}`,
     color: statusToColor(status),
     description: parts.join(" · "),
     user: {
@@ -58,6 +79,7 @@ export function lessonToEvent(
       studentId: lesson.studentId,
       studentName,
       instructorId: lesson.instructorId,
+      vehicleId: lesson.vehicleId,
       vehicle: lesson.vehicle,
       kind,
       status,

@@ -16,9 +16,10 @@ free plan.
 | Framework  | `@tanstack/react-start` 1.168 + Router 1.170, React 19, Vite 8 |
 | Deploy     | Cloudflare Workers via `@cloudflare/vite-plugin`, Wrangler 4 |
 | UI         | Tailwind CSS v4, shadcn/ui `new-york`, Lucide |
-| Data       | TanStack Query + Table + Form, Zod v4 |
+| Data       | TanStack Query, Zod v4 |
 | DB         | Cloudflare D1 (SQLite) + Drizzle ORM |
-| Auth/RBAC  | Better Auth (email+password, Google) + admin plugin (`user`/`manager`/`admin`) |
+| Auth/RBAC  | Better Auth (email+password, Google) + per-school roles
+|            | (`owner`/`secretary`/`instructor`/`student` via memberships) |
 | UI kit     | shadcn/ui only (`src/components/ui`) — no custom primitives |
 | Dashboard  | Modeled on the shadcn dashboard example: sidebar, section
 |            | cards, interactive area chart (recharts), projects table |
@@ -39,12 +40,9 @@ cp .dev.vars.example .dev.vars   # local secrets (already done if .dev.vars exis
 pnpm dev                 # http://localhost:3000
 ```
 
-Sign up at `/login`, then promote yourself to admin:
-
-```bash
-pnpm exec wrangler d1 execute app_db --local \
-  --command "UPDATE user SET role='admin' WHERE email='you@example.com';"
-```
+Sign up at `/login` — first visit takes you to onboarding, where you
+create your auto-école and become its owner. Staff and students get their
+accounts created inside the school (no public signup needed for them).
 
 ## Scripts
 
@@ -183,15 +181,16 @@ column is reserved for a future one-way push to Google Calendar.
 wrangler.jsonc  drizzle.config.ts  vite.config.ts  components.json
 drizzle/                        # SQL migrations (commit these)
 src/
-  router.tsx  routes/           # __root, index, login, _authenticated/*, api/auth/$
+  router.tsx  routes/           # __root, index→/app, login, onboarding,
+                                # _authenticated/*, api/auth/$
   db/{schema.ts,index.ts}       # Drizzle schema + per-request factory
   auth/{permissions.ts,auth.server.ts,auth-client.ts}
   i18n/{en.ts,ar.ts}            # dictionaries (ar typed as Dict = typeof en)
-  lib/{auth-guard.ts,projects.ts,lessons.ts,env.server.ts,utils.ts}
+  lib/{auth-guard.ts,school.ts,lessons.ts,env.server.ts,utils.ts}
   hooks/use-mobile.ts
   components/{theme-provider,theme-toggle,locale-toggle}.tsx
   components/dashboard/         # app-sidebar, nav-*, dashboard-header,
-                                # section-cards, projects-chart/table, new-project-dialog
+                                # section-cards
   features/schedule/            # lessons calendar (views, dialogs, dnd, contexts)
   components/ui/  styles.css    # shadcn primitives ONLY — see AGENTS.md
 test/apply-migrations.ts

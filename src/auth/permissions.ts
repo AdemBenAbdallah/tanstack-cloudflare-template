@@ -1,36 +1,76 @@
-import { createAccessControl } from "better-auth/plugins/access";
-import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
+import { type SchoolRole, schoolRoles } from "@/db/schema";
 
 /**
- * Global-role RBAC model for a single dashboard.
+ * School RBAC matrix (static roles, no permission-management UI in MVP).
  *
- * - user:    read + create projects
- * - manager: + update projects, list/get users (no bans, no role changes, no deletes)
- * - admin:   full user/session control + full project control
+ * - owner:     full access to the school
+ * - secretary: students, calendar, lessons, vehicles/assignments, basic
+ *              payments (record only), exams — no users, no settings,
+ *              no voids, no reports
+ * - instructor: own calendar/lessons/students, complete + no-show + notes
+ *              on own lessons — no finance, no users, no other instructors
+ * - student:   own profile/schedule/progress/payments/exams only
+ *
+ * Permission keys are coarse capabilities; row-level scoping (own vs all)
+ * is enforced separately in server functions via the membership.
  */
-export const statement = {
-  ...defaultStatements,
-  project: ["create", "read", "update", "delete"],
-} as const;
+export type { SchoolRole };
+export { schoolRoles };
 
-export const ac = createAccessControl(statement);
+const ALL: Record<string, true> = {};
 
-export const user = ac.newRole({
-  project: ["create", "read"],
-});
+function perms(...keys: Array<string>): Record<string, true> {
+  return Object.fromEntries(keys.map((k) => [k, true]));
+}
 
-export const manager = ac.newRole({
-  project: ["create", "read", "update"],
-  user: ["list", "get"],
-  session: ["list"],
-});
+export const ROLE_PERMISSIONS: Record<SchoolRole, Record<string, true>> = {
+  owner: ALL, // everything; checked via roleRank first
+  secretary: perms(
+    "students.manage",
+    "students.assign",
+    "calendar.manage",
+    "lessons.manage",
+    "vehicles.view",
+    "vehicles.assign",
+    "instructors.view",
+    "packages.view",
+    "payments.record",
+    "exams.manage",
+    "progress.view_school",
+  ),
+  instructor: perms(
+    "lessons.complete_own",
+    "lessons.note_own",
+    "calendar.view_own",
+    "students.view_assigned",
+    "progress.view_assigned",
+    "exams.view_assigned",
+  ),
+  student: perms(
+    "profile.view_own",
+    "calendar.view_own",
+    "progress.view_own",
+    "payments.view_own",
+    "exams.view_own",
+  ),
+};
 
-export const admin = ac.newRole({
-  project: ["create", "read", "update", "delete"],
-  ...adminAc.statements,
-});
+export const ROLE_RANK: Record<SchoolRole, number> = {
+  student: 0,
+  instructor: 1,
+  secretary: 2,
+  owner: 3,
+};
 
-export const roles = { user, manager, admin } as const;
+export function roleAtLeast(role: SchoolRole, min: SchoolRole): boolean {
+  return ROLE_RANK[role] >= ROLE_RANK[min];
+}
 
-export type Role = keyof typeof roles;
-export const ALL_ROLES: Role[] = ["user", "manager", "admin"];
+/** Coarse capability check. Row-level scoping happens in server functions. */
+export function roleCan(role: SchoolRole, permission: string): boolean {
+  if (role === "owner") return true;
+  return ROLE_PERMISSIONS[role][permission] === true;
+}
+
+/** Roles allowed to manage the schedule (create/move/cancel lessons). */
+export const SCHEDULE_MANAGERS: Array<SchoolRole> = ["owner", "secretary"];

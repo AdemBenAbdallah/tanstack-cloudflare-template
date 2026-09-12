@@ -1,15 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
-import type { Role } from "@/auth/permissions";
+import type { SchoolRole } from "@/auth/permissions";
+import { roleCan } from "@/auth/permissions";
+import { schoolRoles } from "@/db/schema";
 
-const roleSchema = z.enum(["user", "manager", "admin"]);
+const roleSchema = z.enum(schoolRoles);
 
 export interface SessionUser {
   id: string;
   email: string;
   name: string;
-  role: string;
+}
+
+export interface MembershipContext {
+  user: SessionUser;
+  memberId: string;
+  schoolId: string;
+  role: SchoolRole;
 }
 
 async function readSession(): Promise<{ user: SessionUser } | null> {
@@ -27,48 +35,74 @@ async function readSession(): Promise<{ user: SessionUser } | null> {
       id: result.user.id,
       email: result.user.email,
       name: result.user.name,
-      role: (result.user as { role?: string }).role ?? "user",
     },
   };
+}
+
+async function readDb() {
+  const [{ createDb }, { env }] = await Promise.all([
+    import("@/db/index"),
+    import("@/lib/env.server"),
+  ]);
+  const d1 = (env as unknown as Record<string, unknown>).DB as
+    | D1Database
+    | undefined;
+  if (!d1) throw new Error("Missing D1 binding `DB`.");
+  return createDb(d1);
 }
 
 export const getSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ user: SessionUser } | null> => readSession(),
 );
 
-export const requireSessionFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<{ user: SessionUser }> => {
+/**
+ * School context for the request. The tenant NEVER comes from the client:
+ * it is resolved server-side from the session's single membership
+ * (UNIQUE(user_id) enforces one school per login in the MVP).
+ */
+export const getMembershipFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<MembershipContext | null> => {
     const session = await readSession();
-    if (!session) throw new Error("UNAUTHORIZED");
-    return session;
+    if (!session) return null;
+    const db = await readDb();
+    const { eq } = await import("drizzle-orm");
+    const { schoolMember } = await import("@/db/schema");
+    const membership = await db.query.schoolMember.findFirst({
+      where: eq(schoolMember.userId, session.user.id),
+    });
+    if (!membership) return null;
+    if (membership.status !== "active") throw new Error("MEMBERSHIP_INACTIVE");
+    return {
+      user: session.user,
+      memberId: membership.id,
+      schoolId: membership.schoolId,
+      role: membership.role as SchoolRole,
+    };
   },
 );
 
-export const requireRoleFn = createServerFn({ method: "GET" })
+export const requireMembershipFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<MembershipContext> => {
+    const membership = await getMembershipFn();
+    if (!membership) throw new Error("UNAUTHORIZED");
+    return membership;
+  },
+);
+
+export const requireSchoolRoleFn = createServerFn({ method: "GET" })
   .validator(z.object({ roles: z.array(roleSchema).min(1) }))
-  .handler(async ({ data }): Promise<{ user: SessionUser }> => {
-    const session = await readSession();
-    if (!session) throw new Error("UNAUTHORIZED");
-    if (!(data.roles as Array<string>).includes(session.user.role)) {
+  .handler(async ({ data }): Promise<MembershipContext> => {
+    const membership = await requireMembershipFn();
+    if (!(data.roles as Array<string>).includes(membership.role)) {
       throw new Error("FORBIDDEN");
     }
-    return session;
+    return membership;
   });
 
-export const userHasPermissionFn = createServerFn({ method: "POST" })
-  .validator(
-    z.object({
-      role: roleSchema,
-      permissions: z.record(z.string(), z.array(z.string())),
-    }),
-  )
+/** Coarse server-side capability check (row scoping stays in each fn). */
+export const schoolCanFn = createServerFn({ method: "POST" })
+  .validator(z.object({ permission: z.string().min(1) }))
   .handler(async ({ data }): Promise<boolean> => {
-    const { createAuth } = await import("@/auth/auth.server");
-    const auth = createAuth();
-    const input: { role: Role; permissions: Record<string, Array<string>> } =
-      data;
-    const res = await auth.api.userHasPermission({
-      body: { role: input.role, permissions: input.permissions },
-    });
-    return Boolean(res);
+    const membership = await requireMembershipFn();
+    return roleCan(membership.role, data.permission);
   });

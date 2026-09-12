@@ -67,31 +67,50 @@ Local secrets: `.dev.vars` (gitignored). Never commit secrets.
    `cloudflare:workers` cannot resolve. Importing one from client code is a
    build error — that is the guardrail working.
 2. **Server functions** (`createServerFn` in `src/lib/auth-guard.ts`,
-   `src/lib/projects.ts`): top-level imports must be client-safe
-   (zod schemas, types). Lazy-import server modules **inside handlers**:
-   `await import("@/auth/auth.server")`.
+   `src/lib/school.ts`, `src/lib/lessons.ts`): top-level imports must be
+   client-safe (zod schemas, types, drizzle schema). Lazy-import server
+   modules **inside handlers**: `await import("@/auth/auth.server")`.
 3. **Bindings**: single entry `src/lib/env.server.ts`
    (`env.DB`, `env.KV`, `env.UPLOADS`). Per-request `createAuth()` /
    `createDb()` — never cache across requests, never module-scope.
 4. **Auth API route**: `src/routes/api/auth/$.ts` forwards to Better Auth.
    Keep its imports lazy (see file).
+5. **School context**: every tenant server function starts from
+   `requireMembershipFn()` (or `requireSchoolRoleFn([...])`). The
+   `school_id` NEVER comes from client input — it comes from the
+   session's membership. Verify profile/vehicle/enrollment rows belong to
+   that school before touching them (composite FKs backstop this in SQL).
 
 ## Data / RBAC rules
 
 1. **Schema is the source of truth**: edit `src/db/schema.ts` →
-   `pnpm db:generate` → migrate. Auth tables included; never hand-write SQL
-   migrations.
-2. **Roles** (`src/auth/permissions.ts`): `user` < `manager` < `admin`.
+   `pnpm db:generate` → REVIEW the SQL → migrate. Auth tables included;
+   never hand-write SQL migrations (except the overlap triggers, which
+   Drizzle cannot express — see `drizzle/0000_*.sql` tail).
+2. **FK policy (D1 quirk)**: domain FKs are RESTRICT/NO ACTION, never
+   CASCADE — D1 ignores `PRAGMA foreign_keys=OFF` inside migrations, so a
+   table rebuild with CASCADE children wipes data. Deletes are programmatic.
+3. **Roles** (`src/auth/permissions.ts`): `student` < `instructor` <
+   `secretary` < `owner` (per-school, via `school_member`). `user.role` is
+   the Better Auth PLATFORM role only — never use it for school access.
    Enforce server-side in this order: route `beforeLoad` redirect →
-   `requireRoleFn`/`requireSessionFn` in every server function →
-   `userHasPermission` for fine-grained checks. UI hiding is cosmetic only.
-3. **Never trust the client role.** Re-check on the server for every mutation.
-4. **Schedule** (`src/features/schedule/`, server fns in `src/lib/lessons.ts`):
-   `/schedule` and all lesson mutations are staff-only (`admin`/`manager`).
-   Date display uses the explicit date-fns locale (`useDateFnsLocale`) —
-   never `setDefaultOptions` (leaks across SSR requests). Physical
-   direction classes (`left-*`, `ml-*`, …) are banned here; the week grid
-   positions events via `insetInlineStart`.
+   `requireSchoolRoleFn`/`requireMembershipFn` in every server function →
+   `roleCan` for coarse checks + row scoping (own vs all) per role.
+   UI hiding is cosmetic only.
+4. **Never trust the client role.** Re-check on the server for every mutation.
+5. **Schedule** (`src/features/schedule/`, server fns in `src/lib/lessons.ts`):
+   `/calendar` and all lesson mutations are staff-only (`owner`/`secretary`)
+   except instructors completing/annotating their OWN lessons (field-level
+   check in `updateLessonFn`). Overlap rule: app-level `findOverlap` for UX
+   + DB trigger as final layer (cancelled never blocks; cancelled/no-show
+   inserts never conflict). Date display uses the explicit date-fns locale
+   (`useDateFnsLocale`) — never `setDefaultOptions` (leaks across SSR
+   requests). Physical direction classes (`left-*`, `ml-*`, …) are banned
+   here; the week grid positions events via `insetInlineStart`.
+6. **Hours are derived, never stored**: progress = SUM over `completed`
+   lessons (driving bucket = `driving`+`parking`, theory = `theory`, exams
+   consume attempts). Money in integer millimes; payments are voided, never
+   edited.
 
 ## Cost rule
 

@@ -1,83 +1,465 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import type { AppDb } from "@/db/index";
 import { createDb } from "@/db/index";
-import { lesson, project, user } from "@/db/schema";
+import {
+  enrollment,
+  instructorProfile,
+  lesson,
+  packageEntity,
+  payment,
+  school,
+  schoolMember,
+  studentProfile,
+  user,
+  vehicle,
+} from "@/db/schema";
 
-describe("D1 + Drizzle", () => {
-  it("writes and reads through the DB binding", async () => {
-    const e = env as unknown as Record<string, D1Database>;
-    const db = createDb(e.DB);
-    const now = new Date();
+let seq = 0;
+const uid = (p: string) => `${p}_${Date.now()}_${seq++}`;
 
+/** Drizzle wraps DB failures without the SQLite message, so rejection
+ *  tests assert THAT the write fails; companion tests below prove the
+ *  guardrails (triggers, FKs, unique indexes) exist and positive controls
+ *  prove legitimate writes succeed. */
+async function expectDbError(promise: Promise<unknown>) {
+  try {
+    await promise;
+  } catch {
+    return;
+  }
+  throw new Error("expected query to fail, but it succeeded");
+}
+
+async function setupSchool(db: AppDb, name: string) {
+  const schoolId = uid("school");
+  await db.insert(school).values({ id: schoolId, name, slug: uid("slug") });
+
+  async function addUser(email: string, role: string) {
+    const userId = uid("user");
     await db.insert(user).values({
-      id: "user_test_1",
-      name: "Test User",
-      email: "test@example.com",
+      id: userId,
+      name: email,
+      email: `${uid("e")}_${email}`,
       emailVerified: false,
-      role: "admin",
+      role,
       banned: false,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-    await db.insert(project).values({
-      id: "project_test_1",
-      name: "Test project",
-      description: "RBAC demo",
-      ownerId: "user_test_1",
-      createdAt: now,
-      updatedAt: now,
-    });
+    return userId;
+  }
 
-    const found = await db.query.project.findFirst({
-      where: (t, { eq }) => eq(t.id, "project_test_1"),
-      with: { owner: true },
+  async function addMember(
+    userId: string,
+    role: "owner" | "instructor" | "student",
+  ) {
+    const memberId = uid("member");
+    await db.insert(schoolMember).values({
+      id: memberId,
+      schoolId,
+      userId,
+      role,
+      status: "active",
+      joinedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-    expect(found?.name).toBe("Test project");
-    expect(found?.owner.email).toBe("test@example.com");
+    return memberId;
+  }
+
+  const ownerUserId = await addUser("owner@x.tn", "user");
+  await addMember(ownerUserId, "owner");
+
+  const instructorUserId = await addUser("moniteur@x.tn", "user");
+  await addMember(instructorUserId, "instructor");
+  const instructorId = uid("inst");
+  await db.insert(instructorProfile).values({
+    id: instructorId,
+    schoolId,
+    userId: instructorUserId,
+    firstName: "Karim",
+    lastName: "Moniteur",
+    active: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
-  it("stores lessons with student + instructor relations", async () => {
-    const e = env as unknown as Record<string, D1Database>;
-    const db = createDb(e.DB);
-    const now = new Date();
+  const studentUserId = await addUser("eleve@x.tn", "user");
+  await addMember(studentUserId, "student");
+  const studentId = uid("stud");
+  await db.insert(studentProfile).values({
+    id: studentId,
+    schoolId,
+    userId: studentUserId,
+    firstName: "Sara",
+    lastName: "Eleve",
+    licenseCategory: "B",
+    status: "in_training",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 
-    for (const [id, email, role] of [
-      ["user_lesson_student", "student@example.com", "user"],
-      ["user_lesson_instructor", "instructor@example.com", "manager"],
-    ] as const) {
-      await db.insert(user).values({
-        id,
-        name: email,
-        email,
-        emailVerified: false,
-        role,
-        banned: false,
-        createdAt: now,
-        updatedAt: now,
-      });
+  const vehicleId = uid("veh");
+  await db.insert(vehicle).values({
+    id: vehicleId,
+    schoolId,
+    name: "Peugeot 208",
+    plate: `TN-${seq}`,
+    category: "B",
+    transmission: "manual",
+    active: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  return { schoolId, instructorId, studentId, vehicleId };
+}
+
+const H = 3600_000;
+const day = (h: number) =>
+  new Date(`2026-09-14T${String(h).padStart(2, "0")}:00:00Z`);
+
+describe("lesson overlap protection (app rule + DB trigger)", () => {
+  it("rejects overlapping lessons for the same instructor", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const s = await setupSchool(db, "Overlap School");
+    await db.insert(lesson).values({
+      id: uid("l"),
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      vehicleId: s.vehicleId,
+      kind: "driving",
+      status: "scheduled",
+      startsAt: day(9),
+      endsAt: new Date(day(9).getTime() + H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expectDbError(
+      db.insert(lesson).values({
+        id: uid("l"),
+        schoolId: s.schoolId,
+        studentId: s.studentId,
+        instructorId: s.instructorId,
+        vehicleId: s.vehicleId,
+        kind: "driving",
+        status: "scheduled",
+        startsAt: new Date(day(9).getTime() + 30 * 60_000),
+        endsAt: new Date(day(10).getTime() + 30 * 60_000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it("rejects overlapping lessons for the same vehicle with another instructor", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const s = await setupSchool(db, "Vehicle School");
+    const otherUserId = uid("user");
+    await db.insert(user).values({
+      id: otherUserId,
+      name: "Second",
+      email: `${uid("e")}@x.tn`,
+      emailVerified: false,
+      role: "user",
+      banned: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(schoolMember).values({
+      id: uid("member"),
+      schoolId: s.schoolId,
+      userId: otherUserId,
+      role: "instructor",
+      status: "active",
+      joinedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const otherInstructorId = uid("inst");
+    await db.insert(instructorProfile).values({
+      id: otherInstructorId,
+      schoolId: s.schoolId,
+      userId: otherUserId,
+      firstName: "Second",
+      lastName: "Moniteur",
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(lesson).values({
+      id: uid("l"),
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      vehicleId: s.vehicleId,
+      kind: "driving",
+      status: "scheduled",
+      startsAt: day(9),
+      endsAt: new Date(day(9).getTime() + H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expectDbError(
+      db.insert(lesson).values({
+        id: uid("l"),
+        schoolId: s.schoolId,
+        studentId: s.studentId,
+        instructorId: otherInstructorId,
+        vehicleId: s.vehicleId,
+        kind: "driving",
+        status: "scheduled",
+        startsAt: day(9),
+        endsAt: new Date(day(9).getTime() + H),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it("allows back-to-back lessons and ignores cancelled ones", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const s = await setupSchool(db, "BackToBack School");
+    const cancelledId = uid("l");
+    await db.insert(lesson).values({
+      id: cancelledId,
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      vehicleId: s.vehicleId,
+      kind: "driving",
+      status: "cancelled",
+      startsAt: day(9),
+      endsAt: new Date(day(9).getTime() + H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    // Same slot as the cancelled lesson: allowed.
+    const firstId = uid("l");
+    await db.insert(lesson).values({
+      id: firstId,
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      vehicleId: s.vehicleId,
+      kind: "driving",
+      status: "scheduled",
+      startsAt: day(9),
+      endsAt: new Date(day(9).getTime() + H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    // Back-to-back (end == start): allowed.
+    await db.insert(lesson).values({
+      id: uid("l"),
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      vehicleId: s.vehicleId,
+      kind: "driving",
+      status: "scheduled",
+      startsAt: new Date(day(9).getTime() + H),
+      endsAt: new Date(day(9).getTime() + 2 * H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const rows = await db.query.lesson.findMany({
+      where: (t, { eq }) => eq(t.schoolId, s.schoolId),
+    });
+    expect(rows).toHaveLength(3);
+  });
+});
+
+describe("tenant isolation at the DB layer", () => {
+  it("rejects lessons mixing profiles from another school", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const a = await setupSchool(db, "School A");
+    const b = await setupSchool(db, "School B");
+    await expectDbError(
+      db.insert(lesson).values({
+        id: uid("l"),
+        schoolId: a.schoolId,
+        studentId: b.studentId,
+        instructorId: a.instructorId,
+        kind: "driving",
+        status: "scheduled",
+        startsAt: day(9),
+        endsAt: new Date(day(9).getTime() + H),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it("rejects a second membership for the same user (single school MVP)", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const a = await setupSchool(db, "School C");
+    const b = await setupSchool(db, "School D");
+    const userId = uid("user");
+    await db.insert(user).values({
+      id: userId,
+      name: "Multi",
+      email: `${uid("e")}@x.tn`,
+      emailVerified: false,
+      role: "user",
+      banned: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    void a;
+    await db.insert(schoolMember).values({
+      id: uid("member"),
+      schoolId: b.schoolId,
+      userId,
+      role: "student",
+      status: "active",
+      joinedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await expectDbError(
+      db.insert(schoolMember).values({
+        id: uid("member"),
+        schoolId: b.schoolId,
+        userId,
+        role: "instructor",
+        status: "active",
+        joinedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+});
+
+describe("hours ledger derives from lessons", () => {
+  it("sums completed minutes per bucket, ignoring cancelled", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const s = await setupSchool(db, "Ledger School");
+    const mk = (
+      id: string,
+      kind: "driving" | "theory" | "parking",
+      status: "completed" | "cancelled",
+      startH: number,
+      lenH: number,
+    ) => ({
+      id,
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      instructorId: s.instructorId,
+      kind,
+      status,
+      startsAt: day(startH),
+      endsAt: new Date(day(startH).getTime() + lenH * H),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(lesson).values(mk(uid("l"), "driving", "completed", 8, 1));
+    await db.insert(lesson).values(mk(uid("l"), "driving", "completed", 10, 2));
+    await db.insert(lesson).values(mk(uid("l"), "theory", "completed", 14, 2));
+    await db.insert(lesson).values(mk(uid("l"), "driving", "cancelled", 16, 1));
+
+    const rows = await db.query.lesson.findMany({
+      where: (t, { and, eq }) =>
+        and(eq(t.schoolId, s.schoolId), eq(t.status, "completed")),
+    });
+    const minutes = (kinds: Array<string>) =>
+      rows
+        .filter((r) => kinds.includes(r.kind))
+        .reduce(
+          (sum, r) => sum + (r.endsAt.getTime() - r.startsAt.getTime()) / 60000,
+          0,
+        );
+    expect(minutes(["driving", "parking"])).toBe(180);
+    expect(minutes(["theory"])).toBe(120);
+  });
+});
+
+describe("packages and payments", () => {
+  it("tracks balance as snapshot price minus valid payments", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const s = await setupSchool(db, "Billing School");
+    const packageId = uid("pkg");
+    await db.insert(packageEntity).values({
+      id: packageId,
+      schoolId: s.schoolId,
+      name: "Permis B",
+      drivingMinutes: 1200,
+      parkingSessions: 10,
+      theoryMinutes: 1200,
+      examDriveAttempts: 1,
+      examParkingAttempts: 1,
+      priceMillimes: 1_500_000,
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const enrollmentId = uid("enr");
+    await db.insert(enrollment).values({
+      id: enrollmentId,
+      schoolId: s.schoolId,
+      studentId: s.studentId,
+      packageId,
+      drivingMinutes: 1200,
+      parkingSessions: 10,
+      theoryMinutes: 1200,
+      examDriveAttempts: 1,
+      examParkingAttempts: 1,
+      priceMillimes: 1_500_000,
+      status: "active",
+      startedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await db.insert(payment).values({
+      id: uid("pay"),
+      schoolId: s.schoolId,
+      enrollmentId,
+      amountMillimes: 900_000,
+      method: "cash",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const payments = await db.query.payment.findMany({
+      where: (t, { and, eq, isNull }) =>
+        and(eq(t.enrollmentId, enrollmentId), isNull(t.voidedAt)),
+    });
+    const paid = payments.reduce((sum, p) => sum + p.amountMillimes, 0);
+    expect(paid).toBe(900_000);
+    expect(1_500_000 - paid).toBe(600_000);
+  });
+});
+
+describe("schema guardrails exist in the migrated database", () => {
+  it("has overlap triggers and composite same-school FKs", async () => {
+    const db = createDb((env as unknown as Record<string, D1Database>).DB);
+    const { sql } = await import("drizzle-orm");
+    const triggers = (await db.all(
+      sql`SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'lesson_no_overlap_%'`,
+    )) as Array<{ name: string }>;
+    expect(triggers.map((t) => t.name).sort()).toEqual([
+      "lesson_no_overlap_insert",
+      "lesson_no_overlap_update",
+    ]);
+
+    const fks = (await db.all(
+      sql`SELECT "table" AS tbl FROM pragma_foreign_key_list('lesson')`,
+    )) as Array<{ tbl: string }>;
+    const targets = fks.map((r) => r.tbl).sort();
+    for (const expected of [
+      "instructor_profile",
+      "school",
+      "student_profile",
+      "vehicle",
+    ]) {
+      expect(targets).toContain(expected);
     }
 
-    await db.insert(lesson).values({
-      id: "lesson_test_1",
-      studentId: "user_lesson_student",
-      instructorId: "user_lesson_instructor",
-      vehicle: "Car 3",
-      kind: "practice",
-      status: "scheduled",
-      startsAt: new Date("2026-09-14T09:00:00Z"),
-      endsAt: new Date("2026-09-14T10:00:00Z"),
-      notes: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    const found = await db.query.lesson.findFirst({
-      where: (t, { eq }) => eq(t.id, "lesson_test_1"),
-      with: { student: true, instructor: true },
-    });
-    expect(found?.kind).toBe("practice");
-    expect(found?.status).toBe("scheduled");
-    expect(found?.student.email).toBe("student@example.com");
-    expect(found?.instructor.email).toBe("instructor@example.com");
+    const indexes = (await db.all(
+      sql`SELECT name FROM pragma_index_list('school_member') WHERE "unique" = 1`,
+    )) as Array<{ name: string }>;
+    expect(indexes.length).toBeGreaterThan(0);
   });
 });

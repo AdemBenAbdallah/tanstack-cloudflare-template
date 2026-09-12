@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,17 @@ import { lessonKinds } from "@/db/schema";
 import { useCalendar } from "@/features/schedule/contexts/calendar-context";
 import { useDisclosure } from "@/features/schedule/hooks";
 import type { IEvent } from "@/features/schedule/interfaces";
-import { lessonToEvent, toLocalInputValue } from "@/features/schedule/mapping";
+import {
+  kindLabel,
+  lessonToEvent,
+  toLocalInputValue,
+} from "@/features/schedule/mapping";
 import {
   lessonFormSchema,
   type TLessonFormData,
 } from "@/features/schedule/schemas";
 import { useLocale } from "@/i18n";
+import { listSchoolPeopleFn } from "@/lib/school";
 
 interface IProps {
   children: ReactNode;
@@ -45,7 +51,13 @@ export function AddEditEventDialog({
 }: IProps) {
   const { t } = useLocale();
   const { isOpen, onClose, onToggle } = useDisclosure();
-  const { addEvent, updateEvent, users } = useCalendar();
+  const { addEvent, updateEvent, users, students } = useCalendar();
+  const peopleQuery = useQuery({
+    queryKey: ["school-people"],
+    queryFn: () => listSchoolPeopleFn(),
+    staleTime: 60_000,
+  });
+  const vehicles = peopleQuery.data?.vehicles ?? [];
   const isEditing = !!event;
 
   const initial = useMemo(() => {
@@ -53,7 +65,7 @@ export function AddEditEventDialog({
       return {
         studentId: event.lesson.studentId,
         instructorId: event.lesson.instructorId,
-        vehicle: event.lesson.vehicle ?? "",
+        vehicleId: event.lesson.vehicleId ?? "",
         kind: event.lesson.kind,
         status: event.lesson.status,
         startsAt: toLocalInputValue(new Date(event.startDate)),
@@ -67,8 +79,8 @@ export function AddEditEventDialog({
     return {
       studentId: "",
       instructorId: "",
-      vehicle: "",
-      kind: "practice" as const,
+      vehicleId: "",
+      kind: "driving" as const,
       status: "scheduled" as const,
       startsAt: toLocalInputValue(start),
       endsAt: toLocalInputValue(end),
@@ -91,10 +103,13 @@ export function AddEditEventDialog({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function kindLabel(kind: string) {
-    if (kind === "theory") return t.schedule.kinds.theory;
-    if (kind === "exam") return t.schedule.kinds.exam;
-    return t.schedule.kinds.practice;
+  function splitPerson(
+    person: { id: string; name: string } | undefined,
+    fallbackId: string,
+  ) {
+    if (!person) return { id: fallbackId, firstName: "", lastName: "" };
+    const [first, ...rest] = person.name.split(" ");
+    return { id: person.id, firstName: first ?? "", lastName: rest.join(" ") };
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -102,7 +117,7 @@ export function AddEditEventDialog({
     setError(null);
     const parsed = lessonFormSchema.safeParse({
       ...form,
-      vehicle: form.vehicle || undefined,
+      vehicleId: form.vehicleId || undefined,
       notes: form.notes || undefined,
     });
     if (!parsed.success) {
@@ -121,49 +136,53 @@ export function AddEditEventDialog({
           id: event.lesson.lessonId,
           studentId: data.studentId,
           instructorId: data.instructorId,
-          vehicle: data.vehicle ?? null,
+          vehicleId: data.vehicleId ?? null,
+          vehicle: null,
           kind: data.kind,
           status: data.status,
           startsAt: new Date(data.startsAt).toISOString(),
           endsAt: new Date(data.endsAt).toISOString(),
           notes: data.notes ?? null,
-          student: users.find((u) => u.id === data.studentId) ?? {
-            id: data.studentId,
-            name: "",
-            email: "",
-          },
-          instructor: users.find((u) => u.id === data.instructorId) ?? {
-            id: data.instructorId,
-            name: "",
-            email: "",
-          },
+          student: splitPerson(
+            students.find((u) => u.id === data.studentId),
+            data.studentId,
+          ),
+          instructor: splitPerson(
+            users.find((u) => u.id === data.instructorId),
+            data.instructorId,
+          ),
         };
-        const mapped = lessonToEvent(dto, kindLabel);
+        const mapped = lessonToEvent(dto, t);
         const updated: IEvent = { ...mapped, id: event.id };
         const ok = await updateEvent(updated);
         if (!ok) throw new Error("update failed");
         toast.success(t.schedule.dialog.updated);
       } else {
-        const student = users.find((u) => u.id === data.studentId);
+        const student = students.find((u) => u.id === data.studentId);
         const instructor = users.find((u) => u.id === data.instructorId);
         if (!student || !instructor) {
           setError(t.schedule.dialog.invalid);
           return;
         }
+        const splitName = (name: string) => {
+          const [first, ...rest] = name.split(" ");
+          return { firstName: first ?? "", lastName: rest.join(" ") };
+        };
         const dto = {
           id: "",
           studentId: data.studentId,
           instructorId: data.instructorId,
-          vehicle: data.vehicle ?? null,
+          vehicleId: data.vehicleId ?? null,
+          vehicle: null,
           kind: data.kind,
           status: data.status,
           startsAt: new Date(data.startsAt).toISOString(),
           endsAt: new Date(data.endsAt).toISOString(),
           notes: data.notes ?? null,
-          student: { ...student, email: "" },
-          instructor: { ...instructor, email: "" },
+          student: { id: student.id, ...splitName(student.name) },
+          instructor: { id: instructor.id, ...splitName(instructor.name) },
         };
-        const mapped = lessonToEvent(dto, kindLabel);
+        const mapped = lessonToEvent(dto, t);
         const created = await addEvent({
           startDate: mapped.startDate,
           endDate: mapped.endDate,
@@ -213,7 +232,7 @@ export function AddEditEventDialog({
                 <SelectValue placeholder={t.schedule.form.selectStudent} />
               </SelectTrigger>
               <SelectContent>
-                {users.map((u) => (
+                {students.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.name}
                   </SelectItem>
@@ -276,7 +295,7 @@ export function AddEditEventDialog({
                 <SelectContent>
                   {lessonKinds.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {kindLabel(k)}
+                      {kindLabel(k, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -309,12 +328,24 @@ export function AddEditEventDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="lesson-vehicle">{t.schedule.form.vehicle}</Label>
-            <Input
-              id="lesson-vehicle"
-              value={form.vehicle}
-              onChange={(e) => set("vehicle", e.target.value)}
-              placeholder={t.schedule.form.vehiclePlaceholder}
-            />
+            <Select
+              value={form.vehicleId || "none"}
+              onValueChange={(v) => set("vehicleId", v === "none" ? "" : v)}
+            >
+              <SelectTrigger id="lesson-vehicle">
+                <SelectValue placeholder={t.schedule.form.selectVehicle} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  {t.schedule.form.noVehicle}
+                </SelectItem>
+                {vehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="lesson-notes">{t.schedule.form.notes}</Label>

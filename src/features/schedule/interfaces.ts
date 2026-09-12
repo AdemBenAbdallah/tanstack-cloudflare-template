@@ -13,6 +13,7 @@ export interface ILessonData {
   studentId: string;
   studentName: string;
   instructorId: string;
+  vehicleId: string | null;
   vehicle: string | null;
   kind: LessonKind;
   status: LessonStatus;

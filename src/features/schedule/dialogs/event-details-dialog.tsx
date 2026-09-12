@@ -16,6 +16,7 @@ import { useDateFnsLocale } from "@/features/schedule/date-locale";
 import { AddEditEventDialog } from "@/features/schedule/dialogs/add-edit-event-dialog";
 import { formatTime } from "@/features/schedule/helpers";
 import type { IEvent } from "@/features/schedule/interfaces";
+import { kindLabel } from "@/features/schedule/mapping";
 import { useLocale } from "@/i18n";
 
 interface IProps {
@@ -124,12 +125,7 @@ export function EventDetailsDialog({ event, children }: IProps) {
               <div>
                 <p className="text-sm font-medium">{t.schedule.details.kind}</p>
                 <p className="text-sm text-muted-foreground">
-                  {lesson.kind === "theory"
-                    ? t.schedule.kinds.theory
-                    : lesson.kind === "exam"
-                      ? t.schedule.kinds.exam
-                      : t.schedule.kinds.practice}{" "}
-                  ·{" "}
+                  {kindLabel(lesson.kind, t)} ·{" "}
                   {endDate.getTime() > startDate.getTime()
                     ? Math.round(
                         (endDate.getTime() - startDate.getTime()) / 60000,
@@ -160,7 +156,7 @@ export function EventDetailsDialog({ event, children }: IProps) {
             <Button variant="outline">{t.schedule.dialog.edit}</Button>
           </AddEditEventDialog>
           <Button variant="destructive" onClick={deleteLesson}>
-            {t.app.delete}
+            {t.common.delete}
           </Button>
         </div>
       </DialogContent>

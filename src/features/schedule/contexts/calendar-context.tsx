@@ -25,6 +25,7 @@ interface ICalendarContext {
   filterEventsBySelectedColors: (colors: TEventColor) => void;
   filterEventsBySelectedUser: (userId: IUser["id"] | "all") => void;
   users: IUser[];
+  students: IUser[];
   events: IEvent[];
   addEvent: (event: Omit<IEvent, "id">) => Promise<IEvent | null>;
   updateEvent: (event: IEvent) => Promise<boolean>;
@@ -58,12 +59,14 @@ const CalendarContext = createContext({} as ICalendarContext);
 export function CalendarProvider({
   children,
   users,
+  students,
   events,
   badge = "colored",
   view = "day",
 }: {
   children: React.ReactNode;
   users: IUser[];
+  students: IUser[];
   events: IEvent[];
   view?: TCalendarView;
   badge?: "dot" | "colored";
@@ -185,7 +188,7 @@ export function CalendarProvider({
         data: {
           studentId: event.lesson.studentId,
           instructorId: event.lesson.instructorId,
-          vehicle: event.lesson.vehicle ?? undefined,
+          vehicleId: event.lesson.vehicleId ?? undefined,
           kind: event.lesson.kind,
           status: event.lesson.status,
           startsAt: new Date(event.startDate).toISOString(),
@@ -219,7 +222,7 @@ export function CalendarProvider({
           id: lesson.lessonId,
           studentId: lesson.studentId,
           instructorId: lesson.instructorId,
-          vehicle: lesson.vehicle ?? undefined,
+          vehicleId: lesson.vehicleId ?? undefined,
           kind: lesson.kind,
           status: lesson.status,
           startsAt: new Date(event.startDate).toISOString(),
@@ -270,6 +273,7 @@ export function CalendarProvider({
     badgeVariant,
     setBadgeVariant,
     users,
+    students,
     selectedColors,
     filterEventsBySelectedColors,
     filterEventsBySelectedUser,
